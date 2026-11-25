@@ -17,4 +17,7 @@ jobs:
           load: true
           tags: lab-img:main
           cache-from: type=gha,scope=lab
-      - run: echo "source on main: $(cat src/value.txt)" && docker run --rm lab-img:main
+      - name: Show source and built image
+        run: |
+          echo "source on main: $(cat src/value.txt)"
+          docker run --rm lab-img:main
