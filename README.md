@@ -40,7 +40,7 @@ no network, no persistent side effects beyond one cache entry and one artifact.
 | # | Step | Expected evidence | Proves |
 |---|---|---|---|
 | T0 | Harness merged to `main`; `release` runs on the push | `cache_hit=false`, `marker=none`, run step skipped | clean baseline, no cache yet |
-| T1 | Push `attacker-cache`, open PR to `main` | `cache-writer`: `cache_mode=write`, `save_outcome=success`; `chained`: cache export succeeds | low-trust workflow **can** write with the opt-in |
+| T1 | Push `attacker-cache` (03b146b) to the second account's repo as `attacker-fork`, open a cross-repo PR to `main` | `cache-writer`: `save_outcome=success`; `chained`: cache export succeeds | low-trust workflow **can** write with the opt-in |
 | T2 | `workflow_dispatch` on `release` (main) | `cache_hit=true`, `marker=POISONED-…`, `dist/run.sh` prints the attacker line, artifact `release-dist` contains the marker; buildx `RUN` step **not** `CACHED` (content-addressed on `src/`) | trusted consumer executes attacker content; buildx limit |
 | T3 | Delete cache `lab-dist-v1`, repeat with a legit PR | `marker=legit-…`, artifact contains the legit marker | the cache content, not the workflow, decides the output |
 | T4 | Remove `cache-mode: write` from `cache-writer`, repeat T1 | `cache_mode=read`, `save_outcome=failure` with a cache write denied message; T2 then gives `cache_hit=false` | the opt-in is the necessary condition (A/B) |
@@ -48,10 +48,15 @@ no network, no persistent side effects beyond one cache entry and one artifact.
 ## Running it
 
 The `workflow_run` and `push` workflows execute from the **default branch**, so
-the harness must be on `main`. Order: T0 → T1 → T2 → T3 → T4. Collect logs
-with `gh run view <id> --log` or from the Actions tab, and the artifact from
-the `release` run. Cleanup: Actions → Caches → delete `lab-dist-v1`, close the
-PR, delete the branches.
+the harness must be on `main`. The attacker PR comes from a second account
+(cross-repo PR): that is what makes the checkout guard fire without the
+`allow-unsafe-pr-checkout: true` opt-in (observed on runs 45805529388 and
+45800155385, before the opt-in was added). With the opt-in the fork head is
+checked out and its `src/build.sh` runs in the `cache-writer` job. Order:
+T0 → T1 → T2 → T3 → T4. T3 (cache deletion) requires write access to the base
+repo, i.e. the owner account. Collect logs with `gh run view <id> --log` or
+from the Actions tab, and the artifact from the `release` run. Cleanup:
+Actions → Caches → delete `lab-dist-v1`, close the PR, delete the branches.
 
 ## Scope note
 
