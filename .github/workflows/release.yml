@@ -1,0 +1,65 @@
+name: release
+# Trusted consumer: push on the default branch (cache-mode defaults to write,
+# restore is allowed). It restores the fixed-key cache and runs what it finds,
+# which is what a real release pipeline does with a cached build directory.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Report effective cache mode (set by the runner)
+        run: |
+          echo "RESULT event=${GITHUB_EVENT_NAME} ref=${GITHUB_REF}"
+          echo "RESULT cache_mode=${ACTIONS_CACHE_MODE}"
+          echo "RESULT dist_in_checkout=$(ls dist 2>/dev/null | wc -l)"
+
+      - name: Restore the fixed-key cache
+        id: restore
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: dist
+          key: lab-dist-v1
+
+      - name: Report restore outcome and restored marker
+        if: always()
+        run: |
+          echo "RESULT restore_outcome=${{ steps.restore.outcome }}"
+          echo "RESULT cache_hit=${{ steps.restore.outputs.cache-hit }}"
+          echo "RESULT marker=$(cat dist/marker.txt 2>/dev/null || echo none)"
+
+      - name: Run the restored build output
+        if: steps.restore.outputs.cache-hit == 'true'
+        run: bash dist/run.sh
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image reusing the shared buildx GHA cache scope
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: lab-img:release
+          cache-from: type=gha,scope=lab
+
+      - name: Show source on main and run the image
+        run: |
+          echo "RESULT source_on_main=$(cat src/value.txt)"
+          docker run --rm lab-img:release
+
+      - name: Package the restored dist/ as the released artifact
+        if: steps.restore.outputs.cache-hit == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/

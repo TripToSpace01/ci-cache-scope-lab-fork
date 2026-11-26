@@ -1,0 +1,44 @@
+name: cache-writer
+# Low-trust writer: runs after the "pr" workflow and checks out the PR head SHA.
+# The build script it executes comes from the PR commit (attacker-controlled in
+# the real scenario). The cache it saves is what the trusted "release" workflow
+# later restores and executes.
+on:
+  workflow_run:
+    workflows: ["pr"]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  save-dist:
+    runs-on: ubuntu-latest
+    # workflow_run is a low-trust trigger: read-only cache access by default.
+    # This explicit opt-in is the condition under test. Remove it to get the
+    # negative control (the save must be denied).
+    cache-mode: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Report effective cache mode (set by the runner)
+        run: |
+          echo "RESULT event=${GITHUB_EVENT_NAME} ref=${GITHUB_REF}"
+          echo "RESULT head_sha=${GITHUB_SHA}"
+          echo "RESULT cache_mode=${ACTIONS_CACHE_MODE}"
+
+      - name: Build dist/ with the script from the PR head commit
+        run: bash src/build.sh
+
+      - name: Save cache under a fixed key (attacker-controlled content)
+        id: save
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: dist
+          key: lab-dist-v1
+
+      - name: Report save outcome
+        if: always()
+        run: echo "RESULT save_outcome=${{ steps.save.outcome }}"
