@@ -1,0 +1,6 @@
+# Keep shell scripts and workflow files LF-only so they run on Linux runners
+# regardless of the contributor's core.autocrlf setting.
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf
