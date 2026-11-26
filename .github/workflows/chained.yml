@@ -14,8 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Cross-repo ("fork") PR heads need this opt-in (see cache-writer.yml).
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+          allow-unsafe-pr-checkout: true
       - name: Report effective cache mode (set by the runner)
         run: |
           echo "RESULT cache_mode=${ACTIONS_CACHE_MODE}"
