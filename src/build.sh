@@ -13,3 +13,4 @@ cat "$(dirname "$0")/marker.txt"
 EOF
 chmod +x dist/run.sh
 echo "built $(cat dist/marker.txt)"
+# t4 retrigger (comment only)
