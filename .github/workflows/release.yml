@@ -21,6 +21,7 @@ jobs:
           echo "RESULT event=${GITHUB_EVENT_NAME} ref=${GITHUB_REF}"
           echo "RESULT cache_mode=${ACTIONS_CACHE_MODE}"
           echo "RESULT dist_in_checkout=$(ls dist 2>/dev/null | wc -l)"
+          echo "::notice title=RESULT release::event=${GITHUB_EVENT_NAME} cache_mode=${ACTIONS_CACHE_MODE} dist_in_checkout=$(ls dist 2>/dev/null | wc -l)"
 
       - name: Restore the fixed-key cache
         id: restore
@@ -32,10 +33,15 @@ jobs:
 
       - name: Report restore outcome and restored marker
         if: always()
+        env:
+          RESTORE_OUTCOME: ${{ steps.restore.outcome }}
+          CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
         run: |
-          echo "RESULT restore_outcome=${{ steps.restore.outcome }}"
-          echo "RESULT cache_hit=${{ steps.restore.outputs.cache-hit }}"
-          echo "RESULT marker=$(cat dist/marker.txt 2>/dev/null || echo none)"
+          marker="$(cat dist/marker.txt 2>/dev/null || echo none)"
+          echo "RESULT restore_outcome=${RESTORE_OUTCOME}"
+          echo "RESULT cache_hit=${CACHE_HIT}"
+          echo "RESULT marker=${marker}"
+          echo "::notice title=RESULT release::restore_outcome=${RESTORE_OUTCOME} cache_hit=${CACHE_HIT} marker=${marker}"
 
       - name: Run the restored build output
         if: steps.restore.outputs.cache-hit == 'true'
@@ -55,6 +61,7 @@ jobs:
       - name: Show source on main and run the image
         run: |
           echo "RESULT source_on_main=$(cat src/value.txt)"
+          echo "::notice title=RESULT release::source_on_main=$(cat src/value.txt) image_output=$(docker run --rm lab-img:release)"
           docker run --rm lab-img:release
 
       - name: Package the restored dist/ as the released artifact
